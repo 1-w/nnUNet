@@ -1,3 +1,4 @@
+#%%
 import os
 import socket
 from typing import Union, Optional
@@ -13,7 +14,7 @@ from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from torch.backends import cudnn
-
+#%%
 
 def find_free_network_port() -> int:
     """Finds a free port on localhost.

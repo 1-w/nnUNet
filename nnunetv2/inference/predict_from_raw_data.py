@@ -204,7 +204,8 @@ class nnUNetPredictor(object):
                            num_processes_segmentation_export: int = default_num_processes,
                            folder_with_segs_from_prev_stage: str = None,
                            num_parts: int = 1,
-                           part_id: int = 0):
+                           part_id: int = 0,
+                           activate_channels=np.array([-1])):
         """
         This is nnU-Net's default function for making predictions. It works best for batch predictions
         (predicting many images at once).
@@ -254,7 +255,7 @@ class nnUNetPredictor(object):
                                                                                  output_filename_truncated,
                                                                                  num_processes_preprocessing)
 
-        return self.predict_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export)
+        return self.predict_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export,activate_channels)
 
     def _internal_get_data_iterator_from_lists_of_filenames(self,
                                                             input_list_of_lists: List[List[str]],
@@ -339,7 +340,7 @@ class nnUNetPredictor(object):
     def predict_from_data_iterator(self,
                                    data_iterator,
                                    save_probabilities: bool = False,
-                                   num_processes_segmentation_export: int = default_num_processes):
+                                   num_processes_segmentation_export: int = default_num_processes, activate_channels: List[int] = np.array([-1])):
         """
         each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
         If 'ofile' is None, the result will be returned instead of written to a file
@@ -353,6 +354,8 @@ class nnUNetPredictor(object):
                     delfile = data
                     data = torch.from_numpy(np.load(data))
                     os.remove(delfile)
+                
+                
 
                 ofile = preprocessed['ofile']
                 if ofile is not None:
@@ -370,6 +373,15 @@ class nnUNetPredictor(object):
                 while not proceed:
                     sleep(0.1)
                     proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
+                    
+                if -1 not in activate_channels:
+                    if len(activate_channels) != data.shape[0]:
+                        
+                        raise ValueError(f'activate_channels must have the same length as the number of channels in the input data {data.shape} {len(activate_channels)}')
+                    print(activate_channels)
+                    deactivated_channels = activate_channels==0
+                    print(deactivated_channels)
+                    data[deactivated_channels,...] = -1
 
                 prediction = self.predict_logits_from_preprocessed_data(data).cpu()
 
@@ -762,6 +774,8 @@ def predict_entry_point():
     parser.add_argument('-f', nargs='+', type=str, required=False, default=(0, 1, 2, 3, 4),
                         help='Specify the folds of the trained model that should be used for prediction. '
                              'Default: (0, 1, 2, 3, 4)')
+    parser.add_argument('--activate_channels', nargs='+', type=str, required=False, default=np.array([-1]),
+                        help='Only for hetero modality model! If you want to exclude channels from prediction mark them with 0. Lenght must match the number of channels in the input image. Default: (-1) which means all channels are used.')
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
                         help='Step size for sliding window prediction. The larger it is the faster but less accurate '
                              'the prediction. Default: 0.5. Cannot be larger than 1. We recommend the default.')
@@ -847,13 +861,16 @@ def predict_entry_point():
         args.f,
         checkpoint_name=args.chk
     )
+    
+    activate_channels = np.array(args.activate_channels).astype(int)
     predictor.predict_from_files(args.i, args.o, save_probabilities=args.save_probabilities,
                                  overwrite=not args.continue_prediction,
                                  num_processes_preprocessing=args.npp,
                                  num_processes_segmentation_export=args.nps,
                                  folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                                  num_parts=args.num_parts,
-                                 part_id=args.part_id)
+                                 part_id=args.part_id,
+                                 activate_channels=activate_channels)
     # r = predict_from_raw_data(args.i,
     #                           args.o,
     #                           model_folder,

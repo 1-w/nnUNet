@@ -36,10 +36,12 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
+from nnunetv2.utilities.utils import (
+    get_filenames_of_train_images_and_targets_and_othertargets,
+)
 
 
-class ExperimentPlanner(object):
+class ThreewayExperimentPlanner(object):
     def __init__(
         self,
         dataset_name_or_id: Union[str, int],
@@ -59,7 +61,7 @@ class ExperimentPlanner(object):
         self.raw_dataset_folder = join(nnUNet_raw, self.dataset_name)
         preprocessed_folder = join(nnUNet_preprocessed, self.dataset_name)
         self.dataset_json = load_json(join(self.raw_dataset_folder, "dataset.json"))
-        self.dataset = get_filenames_of_train_images_and_targets(
+        self.dataset = get_filenames_of_train_images_and_targets_and_othertargets(
             self.raw_dataset_folder, self.dataset_json
         )
 
