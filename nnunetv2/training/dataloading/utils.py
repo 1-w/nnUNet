@@ -14,6 +14,7 @@ def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_e
                     verify_npy: bool = False, fail_ctr: int = 0) -> None:
     data_npy = npz_file[:-3] + "npy"
     seg_npy = npz_file[:-4] + "_seg.npy"
+    seg2_npy = npz_file[:-4] + "_seg2.npy"
     try:
         npz_content = None  # will only be opened on demand
 
@@ -32,16 +33,27 @@ def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_e
                 print(f"Unable to open preprocessed file {npz_file}. Rerun nnUNetv2_preprocess!")
                 raise e
             np.save(npz_file[:-4] + "_seg.npy", npz_content['seg'])
+        
+        if unpack_segmentation and (overwrite_existing or not isfile(seg2_npy)):
+            try:
+                npz_content = np.load(npz_file) if npz_content is None else npz_content
+            except Exception as e:
+                print(f"Unable to open preprocessed file {npz_file}. Rerun nnUNetv2_preprocess!")
+                raise e
+            np.save(npz_file[:-4] + "_seg2.npy", npz_content['seg2'])
 
         if verify_npy:
             try:
                 np.load(data_npy, mmap_mode='r')
                 if isfile(seg_npy):
                     np.load(seg_npy, mmap_mode='r')
+                if isfile(seg2_npy):
+                    np.load(seg2_npy, mmap_mode='r')
             except ValueError:
                 os.remove(data_npy)
                 os.remove(seg_npy)
-                print(f"Error when checking {data_npy} and {seg_npy}, fixing...")
+                os.remove(seg2_npy)
+                print(f"Error when checking {data_npy} and {seg_npy} and {seg2_npy}, fixing...")
                 if fail_ctr < 2:
                     _convert_to_npy(npz_file, unpack_segmentation, overwrite_existing, verify_npy, fail_ctr+1)
                 else:
@@ -52,12 +64,14 @@ def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_e
             os.remove(data_npy)
         if isfile(seg_npy):
             os.remove(seg_npy)
+        if isfile(seg_npy):
+            os.remove(seg_npy)
         raise KeyboardInterrupt
 
 
 def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_existing: bool = False,
                    num_processes: int = default_num_processes,
-                   verify_npy: bool = False):
+                   verify_npy: bool = False, seg2:bool = True):
     """
     all npz files in this folder belong to the dataset, unpack them all
     """
@@ -66,7 +80,8 @@ def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_exis
         p.starmap(_convert_to_npy, zip(npz_files,
                                        [unpack_segmentation] * len(npz_files),
                                        [overwrite_existing] * len(npz_files),
-                                       [verify_npy] * len(npz_files))
+                                       [verify_npy] * len(npz_files),
+                                    [seg2] * len(npz_files))
                   )
 
 
