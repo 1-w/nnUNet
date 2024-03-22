@@ -40,7 +40,8 @@ def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_e
             except Exception as e:
                 print(f"Unable to open preprocessed file {npz_file}. Rerun nnUNetv2_preprocess!")
                 raise e
-            np.save(npz_file[:-4] + "_seg2.npy", npz_content['seg2'])
+            if 'seg2' in npz_content:
+               np.save(npz_file[:-4] + "_seg2.npy", npz_content['seg2'])
 
         if verify_npy:
             try:

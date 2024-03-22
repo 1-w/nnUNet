@@ -214,7 +214,11 @@ class ThreewayPreprocessor(object):
             dataset_json,
             seg2,
         )
-        return data, seg, data_properties, seg2
+
+        if seg2_file is not None:
+            return data, seg, data_properties, seg2
+
+        return data, seg, data_properties  # , seg2
 
     def run_case_save(
         self,
@@ -224,9 +228,15 @@ class ThreewayPreprocessor(object):
         plans_manager: PlansManager,
         configuration_manager: ConfigurationManager,
         dataset_json: Union[dict, str],
+        seg2_file: str,
     ):
         data, seg, properties, seg2 = self.run_case(
-            image_files, seg_file, plans_manager, configuration_manager, dataset_json
+            image_files,
+            seg_file,
+            plans_manager,
+            configuration_manager,
+            dataset_json,
+            seg2_file,
         )
         # print('dtypes', data.dtype, seg.dtype)
         np.savez_compressed(
@@ -360,6 +370,7 @@ class ThreewayPreprocessor(object):
                                 plans_manager,
                                 configuration_manager,
                                 dataset_json,
+                                dataset[k]["otherlabel"],
                             ),
                         ),
                     )
