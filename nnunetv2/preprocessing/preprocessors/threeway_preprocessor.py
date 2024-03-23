@@ -31,7 +31,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import (
 from nnunetv2.utilities.utils import (
     get_identifiers_from_splitted_dataset_folder,
     create_lists_from_splitted_dataset_folder,
-    get_filenames_of_train_images_and_targets,
+    get_filenames_of_train_images_and_targets_and_othertargets,
 )
 from tqdm import tqdm
 
@@ -348,7 +348,7 @@ class ThreewayPreprocessor(object):
 
         maybe_mkdir_p(output_directory)
 
-        dataset = get_filenames_of_train_images_and_targets(
+        dataset = get_filenames_of_train_images_and_targets_and_othertargets(
             join(nnUNet_raw, dataset_name), dataset_json
         )
 
