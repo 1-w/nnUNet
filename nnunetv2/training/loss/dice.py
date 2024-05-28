@@ -189,11 +189,14 @@ class MemoryEfficientSoftThriceLoss(nn.Module):
                 z_onehot = torch.zeros(x.shape, device=x.device, dtype=torch.bool)
                 z_onehot.scatter_(1, z.long(), 1)
 
+            nz_onehot = z_onehot == 0
+
             if not self.do_bg:
                 y_onehot = y_onehot[:, 1:]
 
             if not self.do_bg:
                 z_onehot = z_onehot[:, 1:]
+                nz_onehot = nz_onehot[:, 1:]
 
             sum_gt = (
                 y_onehot.sum(axes)
@@ -214,11 +217,13 @@ class MemoryEfficientSoftThriceLoss(nn.Module):
         if loss_mask is None:
             intersect_xy = (x * y_onehot).sum(axes)
             intersect_xz = (x * z_onehot).sum(axes)
+            intersect_xynz = (x * y_onehot * nz_onehot).sum(axes)
             intersect_xyz = (x * y_onehot * z_onehot).sum(axes)
             sum_pred = x.sum(axes)
         else:
             intersect_xy = (x * y_onehot * loss_mask).sum(axes)
             intersect_xz = (x * z_onehot * loss_mask).sum(axes)
+            intersect_xynz = (x * y_onehot * nz_onehot * loss_mask).sum(axes)
             intersect_xyz = (x * y_onehot * z_onehot * loss_mask).sum(axes)
             sum_pred = (x * loss_mask).sum(axes)
 
@@ -226,6 +231,7 @@ class MemoryEfficientSoftThriceLoss(nn.Module):
             if self.ddp:
                 intersect_xy = AllGatherGrad.apply(intersect_xy).sum(0)
                 intersect_xz = AllGatherGrad.apply(intersect_xz).sum(0)
+                intersect_xynz = AllGatherGrad.apply(intersect_xynz).sum(0)
                 intersect_xyz = AllGatherGrad.apply(intersect_xyz).sum(0)
                 sum_pred = AllGatherGrad.apply(sum_pred).sum(0)
                 sum_gt = AllGatherGrad.apply(sum_gt).sum(0)
@@ -233,14 +239,15 @@ class MemoryEfficientSoftThriceLoss(nn.Module):
 
             intersect_xy = intersect_xy.sum(0)
             intersect_xz = intersect_xz.sum(0)
+            intersect_xynz = intersect_xynz.sum(0)
             intersect_xyz = intersect_xyz.sum(0)
             sum_pred = sum_pred.sum(0)
             sum_gt = sum_gt.sum(0)
             sum_z = sum_z.sum(0)
 
-        dc = (3 * intersect_xyz + 2 * intersect_xy + self.smooth) / (
-            torch.clip(sum_gt + sum_pred + sum_z + self.smooth, 1e-8)
-        )
+        dc = (
+            3 * intersect_xyz + 2 * intersect_xy - 2 * intersect_xynz + self.smooth
+        ) / (torch.clip(sum_gt + sum_pred + sum_z + self.smooth, 1e-8))
 
         dc = dc.mean()
         return -dc

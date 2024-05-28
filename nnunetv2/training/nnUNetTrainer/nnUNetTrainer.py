@@ -241,7 +241,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 400  # 1000
+        self.num_epochs = 400 #1000
         self.current_epoch = 0
         self.enable_deep_supervision = True
 
@@ -1168,10 +1168,15 @@ class nnUNetTrainer(object):
 
         # maybe unpack
         if self.unpack_dataset and self.local_rank == 0:
-            self.print_to_log_file('unpacking dataset...')
-            unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
-                           num_processes=max(1, round(get_allowed_n_proc_DA() // 2)), verify_npy=True)
-            self.print_to_log_file('unpacking done...')
+            self.print_to_log_file("unpacking dataset...")
+            unpack_dataset(
+                self.preprocessed_dataset_folder,
+                unpack_segmentation=True,
+                overwrite_existing=False,
+                num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),
+                verify_npy=True,
+            )
+            self.print_to_log_file("unpacking done...")
             self.print_to_log_file("unpacking dataset...")
             unpack_dataset(
                 self.preprocessed_dataset_folder,
