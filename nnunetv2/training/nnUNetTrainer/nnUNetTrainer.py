@@ -1845,9 +1845,19 @@ class nnUNetHeteroTrainer(nnUNetTrainer):
         )
 
         comp = self.comparison.clone()
+        
+        #check if input volume is all -1 --> missing
+        for i, xi in enumerate(data):
+            if torch.all(xi==-1):
+                comp[i] = 0
+        
         for i in indices[:-1]:
+            # check if data is left, dont wanna make too much missing
+            if sum(comp>0) == 1:
+                break
             if np.random.random() < self.current_epoch / self.num_epochs:
                 comp[i] = 0
+            
 
         comp /= comp.sum()
 
