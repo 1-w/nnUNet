@@ -1,4 +1,7 @@
 import numpy as np
+import torch
+from threadpoolctl import threadpool_limits
+
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 from typing import Union, Tuple
@@ -110,8 +113,8 @@ class nnUNetThreewayDataLoader3D(nnUNetDataLoaderBase):
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
             # valid_bbox is just the coord that lied within the data cube. It will be padded to match the patch size
             # later
-            valid_bbox_lbs = [max(0, bbox_lbs[i]) for i in range(dim)]
-            valid_bbox_ubs = [min(shape[i], bbox_ubs[i]) for i in range(dim)]
+            valid_bbox_lbs = np.clip(bbox_lbs, a_min=0, a_max=None)
+            valid_bbox_ubs = np.minimum(shape, bbox_ubs)
 
             # At this point you might ask yourself why we would treat seg differently from seg_from_previous_stage.
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
