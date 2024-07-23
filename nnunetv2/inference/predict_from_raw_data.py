@@ -548,8 +548,13 @@ class nnUNetPredictor(object):
 
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
-        prediction = self.network(x)
-
+        
+        prediction = self.network(x)        
+        
+        if prediction.ndim == 4:
+            #this is for some simpler network that do not output vanilla nnunet shaped predicitons TODO change this !!
+            prediction = prediction.unsqueeze(0)
+        
         if mirror_axes is not None:
             # check for invalid numbers in mirror_axes
             # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
@@ -560,7 +565,10 @@ class nnUNetPredictor(object):
                 c for i in range(len(mirror_axes)) for c in itertools.combinations(mirror_axes, i + 1)
             ]
             for axes in axes_combinations:
-                prediction += torch.flip(self.network(torch.flip(x, axes)), axes)
+                prediction_ = self.network(torch.flip(x, axes))
+                if prediction_.ndim == 4:
+                    prediction_ = prediction_.unsqueeze(0)
+                prediction += torch.flip(prediction_, axes)
             prediction /= (len(axes_combinations) + 1)
         return prediction
 
@@ -579,6 +587,7 @@ class nnUNetPredictor(object):
             if self.verbose:
                 print(f'move image to device {results_device}')
             data = data.to(results_device)
+            
 
             # preallocate arrays
             if self.verbose:
@@ -600,7 +609,6 @@ class nnUNetPredictor(object):
             for sl in tqdm(slicers, disable=not self.allow_tqdm):
                 workon = data[sl][None]
                 workon = workon.to(self.device)
-
                 prediction = self._internal_maybe_mirror_and_predict(workon)[0].to(results_device)
 
                 if self.use_gaussian:
