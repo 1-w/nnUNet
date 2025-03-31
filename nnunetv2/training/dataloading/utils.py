@@ -18,7 +18,7 @@ def find_broken_image_and_labels(
     If so, the case id is added to the respective set and returned for potential fixing.
 
     :path_to_data_dir: Path/str to the preprocessed directory containing the npys and npzs.
-    :returns: Tuple of a set containing the case ids of the broken npy images and a set of the case ids of broken npy segmentations. 
+    :returns: Tuple of a set containing the case ids of the broken npy images and a set of the case ids of broken npy segmentations.
     """
     content = os.listdir(path_to_data_dir)
     unique_ids = [c[:-4] for c in content if c.endswith(".npz")]
@@ -40,7 +40,7 @@ def find_broken_image_and_labels(
 
 
 def try_fix_broken_npy(path_do_data_dir: Path, case_ids: set[str], fix_image: bool):
-    """ 
+    """
     Receives broken case ids and tries to fix them by re-extracting the npz file (up to 5 times).
 
     :param case_ids: Set of case ids that are broken.
@@ -88,41 +88,73 @@ def verify_or_stratify_npys(path_to_data_dir: str | Path) -> None:
         try_fix_broken_npy(path_to_data_dir, failed_seg_ids, fix_image=False)
 
 
-def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_existing: bool = False) -> None:
+def _convert_to_npy(
+    npz_file: str,
+    unpack_segmentation: bool = True,
+    overwrite_existing: bool = False,
+    seg2: bool = False,
+) -> None:
     try:
-        a = np.load(npz_file)  # inexpensive, no compression is done here. This just reads metadata
+        a = np.load(
+            npz_file
+        )  # inexpensive, no compression is done here. This just reads metadata
         if overwrite_existing or not isfile(npz_file[:-3] + "npy"):
-            np.save(npz_file[:-3] + "npy", a['data'])
-        if unpack_segmentation and (overwrite_existing or not isfile(npz_file[:-4] + "_seg.npy")):
-            np.save(npz_file[:-4] + "_seg.npy", a['seg'])
+            np.save(npz_file[:-3] + "npy", a["data"])
+        if unpack_segmentation and (
+            overwrite_existing or not isfile(npz_file[:-4] + "_seg.npy")
+        ):
+            np.save(npz_file[:-4] + "_seg.npy", a["seg"])
+        if (
+            seg2
+            and unpack_segmentation
+            and (overwrite_existing or not isfile(npz_file[:-4] + "_seg2.npy"))
+        ):
+            np.save(npz_file[:-4] + "_seg2.npy", a["seg2"])
+
     except KeyboardInterrupt:
         if isfile(npz_file[:-3] + "npy"):
             os.remove(npz_file[:-3] + "npy")
         if isfile(npz_file[:-4] + "_seg.npy"):
             os.remove(npz_file[:-4] + "_seg.npy")
+        if isfile(npz_file[:-4] + "_seg2.npy"):
+            os.remove(npz_file[:-4] + "_seg2.npy")
         raise KeyboardInterrupt
 
 
-def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_existing: bool = False,
-                   num_processes: int = default_num_processes):
+def unpack_dataset(
+    folder: str,
+    unpack_segmentation: bool = True,
+    overwrite_existing: bool = False,
+    num_processes: int = default_num_processes,
+    seg2: bool = False,
+):
     """
     all npz files in this folder belong to the dataset, unpack them all
     """
     with multiprocessing.get_context("spawn").Pool(num_processes) as p:
         npz_files = subfiles(folder, True, None, ".npz", True)
-        p.starmap(_convert_to_npy, zip(npz_files,
-                                       [unpack_segmentation] * len(npz_files),
-                                       [overwrite_existing] * len(npz_files))
-                  )
+        p.starmap(
+            _convert_to_npy,
+            zip(
+                npz_files,
+                [unpack_segmentation] * len(npz_files),
+                [overwrite_existing] * len(npz_files),
+                [seg2] * len(npz_files),
+            ),
+        )
 
 
 def get_case_identifiers(folder: str) -> List[str]:
     """
     finds all npz files in the given folder and reconstructs the training case names from them
     """
-    case_identifiers = [i[:-4] for i in os.listdir(folder) if i.endswith("npz") and (i.find("segFromPrevStage") == -1)]
+    case_identifiers = [
+        i[:-4]
+        for i in os.listdir(folder)
+        if i.endswith("npz") and (i.find("segFromPrevStage") == -1)
+    ]
     return case_identifiers
 
 
-if __name__ == '__main__':
-    unpack_dataset('/media/fabian/data/nnUNet_preprocessed/Dataset002_Heart/2d')
+if __name__ == "__main__":
+    unpack_dataset("/media/fabian/data/nnUNet_preprocessed/Dataset002_Heart/2d")
