@@ -223,7 +223,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 100
-        self.num_epochs = 1000
+        self.num_epochs = 500  # TODO was 200, orig 1000
         self.current_epoch = 0
         self.enable_deep_supervision = True
 
@@ -268,7 +268,7 @@ class nnUNetTrainer(object):
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
 
         ### checkpoint saving stuff
-        self.save_every = 50
+        self.save_every = 60  # use 12 for stunet_large, 60 for others #TODO was 50
         self.disable_checkpointing = False
 
         ## DDP batch size and oversampling can differ between workers and needs adaptation
@@ -686,8 +686,9 @@ class nnUNetTrainer(object):
             momentum=0.99,
             nesterov=True,
         )
+
         # lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
-        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, 1000, eps=1e-8)
+        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, 500, eps=1e-8)
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
@@ -1974,6 +1975,7 @@ class nnUNetTrainer5000GradAcc(nnUNetTrainer):
 
         self.on_train_end()
 
+
 class HeteroModalnnUNetTrainer(nnUNetTrainer):
     def __init__(
         self,
@@ -2031,7 +2033,7 @@ class HeteroModalnnUNetTrainer(nnUNetTrainer):
             ),
             replace=False,
         )
-        
+
         # check if max = 0 --> missing
         comp = 1.0 * (torch.amax(data, dim=(2, 3, 4)) != 0)
 
@@ -2189,6 +2191,7 @@ class HeteroModalnnUNetTrainerAdam(HeteroModalnnUNetTrainer):
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, 5000, exponent=10)
         return optimizer, lr_scheduler
 
+
 class combinedTrainer(nnUNetTrainer):
     def __init__(
         self,
@@ -2199,10 +2202,12 @@ class combinedTrainer(nnUNetTrainer):
         unpack_dataset: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(
+            plans, configuration, fold, dataset_json, unpack_dataset, device
+        )
         self.enable_deep_supervision = False
-        self.num_epochs = 400  
-        
+        self.num_epochs = 400
+
     def train_step(self, batch: dict) -> dict:
         data = batch["data"]
         target = batch["target"][0].unsqueeze(1)
@@ -2238,7 +2243,7 @@ class combinedTrainer(nnUNetTrainer):
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
         return {"loss": l.detach().cpu().numpy()}
-    
+
     def validation_step(self, batch: dict) -> dict:
         data = batch["data"]
         target = batch["target"][0].unsqueeze(1)
@@ -2261,7 +2266,7 @@ class combinedTrainer(nnUNetTrainer):
             output = self.network(data)
             del data
             l = self.loss(output, target)
-            
+
         # we only need the output with the highest output resolution (if DS enabled)
         # output = output.unsqueeze(1)
         # target = target.unsqueeze(1)
@@ -2299,7 +2304,7 @@ class combinedTrainer(nnUNetTrainer):
         tp, fp, fn, _ = get_tp_fp_fn_tn(
             predicted_segmentation_onehot, target, axes=axes, mask=mask
         )
-        
+
         # tp, fp, fn, _ = get_tp_fp_fn_tn(
         #     predicted_segmentation_onehot.squeeze(), target, axes=[0,1,2,3], mask=mask
         # )
@@ -2322,7 +2327,7 @@ class combinedTrainer(nnUNetTrainer):
             "fp_hard": fp_hard,
             "fn_hard": fn_hard,
         }
-    
+
     def set_deep_supervision_enabled(self, enabled: bool):
         """
         This function is specific for the default architecture in nnU-Net. If you change the architecture, there are
@@ -2330,6 +2335,8 @@ class combinedTrainer(nnUNetTrainer):
         """
         print("Deep supervision is not supported in this trainer")
         pass
+
+
 # %%
 if __name__ == "__main__":
     # pass
@@ -2348,7 +2355,7 @@ if __name__ == "__main__":
     #     # device=torch.device("cuda"),
     #     device=torch.device("cpu"),
     # )
-    
+
     nnunet_trainer = get_trainer_from_args(
         "900",
         "3d_fullres",
@@ -2360,28 +2367,28 @@ if __name__ == "__main__":
         device=torch.device("cuda"),
         # device=torch.device("cpu"),
     )
-    #%%
-    
+    # %%
+
     nnunet_trainer.on_train_start()
 
     # %%
     # %% test
     batch = next(nnunet_trainer.dataloader_train)
-    #%%
+    # %%
     valbatch = next(nnunet_trainer.dataloader_val)
-    #%%
+    # %%
     data = batch["data"]
     target = batch["target"][0]
-    #%%
+    # %%
     valdata = valbatch["data"]
     valtarget = valbatch["target"][0]
-    #%%
-    output = nnunet_trainer.network(data)
-    #%%
-    l = nnunet_trainer.loss(output, target)
-    #%%
     # %%
-    
+    output = nnunet_trainer.network(data)
+    # %%
+    l = nnunet_trainer.loss(output, target)
+    # %%
+    # %%
+
     for i in range(1):
         nnunet_trainer.on_epoch_start()
         ##%%
@@ -2402,16 +2409,15 @@ if __name__ == "__main__":
                 val_outputs.append(
                     nnunet_trainer.validation_step(next(nnunet_trainer.dataloader_val))
                 )
-                
+
             nnunet_trainer.on_validation_epoch_end(val_outputs)
         ##%%
         nnunet_trainer.on_epoch_end()
     # %%
     nnunet_trainer.on_train_end()
 
-
-    #%%
-    #%%
+    # %%
+    # %%
 
     import copy
 
@@ -2496,7 +2502,7 @@ if __name__ == "__main__":
             ## %%
             torch.save(new_checkpoint, ckpt_path)
             torch.save(new_checkpoint, ckpt_path.replace(".pth", "_fixed.pth"))
-    
+
 # from nnunetv2.run.run_training import get_trainer_from_args
 # import torch
 # nnunet_trainer = get_trainer_from_args(
@@ -2531,7 +2537,7 @@ if __name__ == "__main__":
 #             val_outputs.append(
 #                 nnunet_trainer.validation_step(next(nnunet_trainer.dataloader_val))
 #             )
-            
+
 #         nnunet_trainer.on_validation_epoch_end(val_outputs)
 #     ##%%
 #     nnunet_trainer.on_epoch_end()
